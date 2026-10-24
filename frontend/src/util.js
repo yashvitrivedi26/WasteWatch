@@ -43,3 +43,12 @@ export function mapsRouteLink(origin, stops) {
   const via = stops.slice(0, -1).map(pt).join('|');
   return `https://www.google.com/maps/dir/?api=1${origin ? `&origin=${pt(origin)}` : ''}&destination=${pt(dest)}${via ? `&waypoints=${encodeURIComponent(via)}` : ''}&travelmode=driving`;
 }
+
+// "just now" | "12 min ago" | "3 h ago" | "2 d ago"
+export function ago(iso, t) {
+  const m = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+  if (m < 1) return t.ago_now;
+  if (m < 60) return fmt(t.ago_min, { n: m });
+  if (m < 48 * 60) return fmt(t.ago_h, { n: Math.round(m / 60) });
+  return fmt(t.ago_d, { n: Math.round(m / 1440) });
+}

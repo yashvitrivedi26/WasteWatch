@@ -34,6 +34,7 @@ export default function Report() {
   const [msg, setMsg] = useState({ text: '', ok: false });
   const [done, setDone] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
   const runId = useRef(0);
 
   useEffect(() => { api('/api/public-config').then(setCfg).catch(() => {}); }, []);
@@ -151,7 +152,7 @@ export default function Report() {
   }
 
   function again() {
-    setDone(null); setPhoto(null); setPreview(''); setAi(null); setPoint(null); setNote(''); setEmergency(false); setEmReason(''); setResults([]); setQ('');
+    setDone(null); setCopied(false); setPhoto(null); setPreview(''); setAi(null); setPoint(null); setNote(''); setEmergency(false); setEmReason(''); setResults([]); setQ('');
   }
 
   const sourceText = point ? `${{ gps: t.rp_gps, exif: t.rp_exif, map: t.rp_map, search: t.rp_searched }[point.source]}${point.accuracy ? ` · ${fmt(t.rp_accuracy, { m: point.accuracy })}` : ''}` : finding ? t.rp_finding : t.rp_loc_none;
@@ -164,8 +165,22 @@ export default function Report() {
           <div className="tick">✓</div>
           <h2>{t.thanks}</h2>
           <p className="muted">{t.rp_id}</p>
-          <div className="big-code">{done.code}</div>
-          <button className="link" onClick={() => navigator.clipboard?.writeText(done.code)}>{t.rp_copy}</button>
+          <div className="id-box">
+            <span className="big-code" id="report-id">{done.code}</span>
+            <button type="button" className={`copy-btn ${copied ? 'done' : ''}`} aria-label={t.rp_copy}
+              onClick={async () => {
+                try { await navigator.clipboard.writeText(done.code); } catch {
+                  const range = document.createRange(); range.selectNodeContents(document.getElementById('report-id'));
+                  const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range); document.execCommand?.('copy');
+                }
+                setCopied(true); setTimeout(() => setCopied(false), 2000);
+              }}>
+              {copied
+                ? <><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" /></svg>{t.copied}</>
+                : <><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2.5" fill="none" stroke="currentColor" strokeWidth="2" /><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" fill="none" stroke="currentColor" strokeWidth="2" /></svg>{t.copy}</>}
+            </button>
+          </div>
+          <p className="muted">{t.rp_keep_id}</p>
           <div className="done-grid">
             <div><small>{t.rp_level}</small><LevelBadge level={done.level} /></div>
             <div><small>{t.rp_cover}</small><b>{done.coverage_pct}%</b></div>

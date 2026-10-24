@@ -4,69 +4,98 @@ import { api } from '../api.js';
 import { useLang } from '../i18n/index.jsx';
 import { fmtMin } from '../util.js';
 
-const STEP_ROUTE = ['/report', '/report', '/officer', '/officer', '/worker'];
+const STEPS = [
+  { icon: '📷', k: 1 },
+  { icon: '🧠', k: 2 },
+  { icon: '🧭', k: 3 },
+  { icon: '✅', k: 4 },
+];
 
 export default function Home() {
   const { t } = useLang();
-  const [step, setStep] = useState(0);
   const [stats, setStats] = useState(null);
   useEffect(() => { api('/api/public-stats').then(setStats).catch(() => {}); }, []);
-  const live = stats ? [stats.reports, stats.cleared, stats.active, stats.avg_response_min == null ? '—' : fmtMin(stats.avg_response_min), stats.avg_work_min == null ? '—' : fmtMin(stats.avg_work_min)] : [];
+  const pct = stats && stats.reports ? Math.round((stats.cleared / stats.reports) * 100) : 0;
+
   return (
-    <main className="wrap">
-      <header className="hero">
-        <div className="eyebrow">{t.eyebrow}</div>
-        <h1>{t.brand}</h1>
-        <p className="sub">{t.sub}</p>
-        <div className="mode"><span className="pill off">{t.old}</span><span>&rarr;</span><span className="pill on">{t.nw}</span></div>
-        <div className="cta-row">
-          <Link to="/report" className="btn primary cta">{t.ctaReport}</Link>
-          <Link to="/track" className="btn cta">{t.ctaTrack}</Link>
-        </div>
-      </header>
+    <main className="home">
+      <section className="hm-hero">
+        <div className="hm-hero-in">
+          <div className="hm-copy">
+            <span className="hm-eyebrow">{t.hm_eyebrow}</span>
+            <h1>{t.hm_title}</h1>
+            <p>{t.hm_sub}</p>
+            <div className="hm-cta">
+              <Link to="/report" className="btn primary big">📷 {t.ctaReport}</Link>
+              <Link to="/track" className="btn big light">{t.ctaTrack}</Link>
+            </div>
+            <ul className="hm-trust">{t.hm_trust.map((x) => <li key={x}>✓ {x}</li>)}</ul>
+          </div>
 
-      <section className="live">
-        {t.live_labels.map((l, i) => <div key={l}><b>{stats ? live[i] : '…'}</b>{l}</div>)}
-      </section>
-
-      <nav className="steps">
-        {t.steps.map((s, i) => (
-          <button key={i} className={`${step === i ? 'active' : ''} ${step > i ? 'done' : ''}`} onClick={() => setStep(i)}>
-            <b>{i + 1}</b>{s}
-          </button>
-        ))}
-      </nav>
-
-      <section className="banner">
-        <div>
-          <div className="tag">{t.tags[step]}</div>
-          <h2>{t.titles[step]}</h2>
-          <p>{t.descs[step]}</p>
-        </div>
-        <div className="nav">
-          <button className="btn ghost" disabled={step === 0} onClick={() => setStep(step - 1)}>{t.back}</button>
-          <button className="btn ghost" disabled={step === 4} onClick={() => setStep(step + 1)}>{t.next}</button>
-          <Link className="btn primary" to={STEP_ROUTE[step]}>{t.openStep}</Link>
+          <div className="hm-live">
+            <div className="hm-live-h"><span className="dot-live" />{t.hm_live}</div>
+            <div className="hm-live-grid">
+              <div><b>{stats ? stats.reports : '…'}</b><small>{t.live_labels[0]}</small></div>
+              <div><b>{stats ? stats.cleared : '…'}</b><small>{t.live_labels[1]}</small></div>
+              <div><b>{stats ? stats.active : '…'}</b><small>{t.live_labels[2]}</small></div>
+              <div><b>{stats?.avg_response_min == null ? '—' : fmtMin(stats.avg_response_min)}</b><small>{t.live_labels[3]}</small></div>
+            </div>
+            <div className="hm-progress"><i style={{ width: `${pct}%` }} /></div>
+            <small className="hm-progress-l">{pct}% {t.hm_cleared_share}</small>
+          </div>
         </div>
       </section>
 
-      <section className="roles">
-        {[['/report', 'citizen'], ['/officer', 'officer'], ['/worker', 'worker']].map(([to, k]) => (
-          <Link key={to} to={to} className="card role-card">
-            <h3>{t['role_' + k]}</h3>
-            <p className="muted">{t['role_' + k + '_d']}</p>
-          </Link>
-        ))}
+      <section className="hm-sec">
+        <h2>{t.hm_how}</h2>
+        <ol className="hm-steps">
+          {STEPS.map((s) => (
+            <li key={s.k}>
+              <span className="hm-step-ic">{s.icon}</span>
+              <small>{t.hm_step} {s.k}</small>
+              <b>{t['hm_s' + s.k]}</b>
+              <p>{t['hm_s' + s.k + '_d']}</p>
+            </li>
+          ))}
+        </ol>
       </section>
 
-      <section className="emerg-strip">
-        <div><b>🚨 {t.em_title}</b><p>{t.em_text}</p></div>
-        <div className="em-btns"><a className="btn primary" href="tel:112">{t.sos_long}</a><Link className="btn" to="/contact">{t.em_offices}</Link></div>
+      <section className="hm-sec">
+        <h2>{t.hm_who}</h2>
+        <div className="hm-roles">
+          {[['/report', 'citizen', '🙋'], ['/officer', 'officer', '🧑‍💼'], ['/worker', 'worker', '🧹']].map(([to, k, ic]) => (
+            <Link key={k} to={to} className="hm-role">
+              <span className="hm-role-ic">{ic}</span>
+              <b>{t['role_' + k]}</b>
+              <p>{t['hm_role_' + k]}</p>
+              <span className="hm-role-go">{t['hm_go_' + k]} →</span>
+            </Link>
+          ))}
+        </div>
       </section>
 
-      <section className="compare">
-        <div className="card"><h3>{t.today}</h3><ol>{t.oldList.map((l) => <li key={l}>{l}</li>)}</ol><div className="bad">{t.oldEnd}</div></div>
-        <div className="card good"><h3>{t.withWW}</h3><ol>{t.newList.map((l) => <li key={l}>{l}</li>)}</ol><div className="gd">{t.newEnd}</div></div>
+      <section className="hm-sec hm-compare">
+        <div className="hm-cmp old">
+          <h3>{t.today}</h3>
+          <ol>{t.oldList.map((l) => <li key={l}>{l}</li>)}</ol>
+        </div>
+        <div className="hm-cmp new">
+          <h3>{t.withWW}</h3>
+          <ol>{t.newList.map((l) => <li key={l}>{l}</li>)}</ol>
+        </div>
+      </section>
+
+      <section className="hm-sec">
+        <div className="hm-em">
+          <div>
+            <b>🚨 {t.em_title}</b>
+            <p>{t.hm_em}</p>
+          </div>
+          <div className="hm-em-btns">
+            <a className="btn danger-solid" href="tel:112">{t.sos_long}</a>
+            <Link className="btn" to="/contact">{t.em_offices}</Link>
+          </div>
+        </div>
       </section>
     </main>
   );

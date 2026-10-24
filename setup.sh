@@ -9,6 +9,6 @@ pip install -r requirements.txt
 # The data model changed in this version: keep any old database as db.sqlite3.old
 [ -f backend/db.sqlite3 ] && [ ! -f backend/db.sqlite3.old ] && mv backend/db.sqlite3 backend/db.sqlite3.old
 (python -m ml.download_model || echo 'Model download failed; run: python -m ml.download_model'
-cd backend && python manage.py migrate && python manage.py seed_ward)
+cd backend && python manage.py migrate && python manage.py seed_ward && python manage.py seed_demo)
 (cd frontend && npm install)
 echo "Setup done. Run ./start.sh"
