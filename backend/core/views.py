@@ -98,6 +98,8 @@ def report_dict(r, with_task=True):
     d = {
         "id": r.id, "code": r.code, "ward": r.ward.name, "lat": r.lat, "lng": r.lng, "address": r.address,
         "accuracy_m": r.accuracy_m, "location_source": r.location_source,
+        "emergency_status": r.emergency_status, "emergency_category": r.emergency_category,
+        "emergency_reason": r.emergency_reason, "emergency_place": r.emergency_place,
         "type": r.type, "note": r.note, "phone": r.contact_phone, "is_emergency": r.is_emergency, "level": r.level,
         "coverage_pct": r.coverage_pct, "eta_min": r.eta_min, "eta_max": r.eta_max, "status": r.status,
         "created_at": iso(r.created_at), "cleared_at": iso(r.cleared_at), "photo": url(r.photo), "overlay": url(r.overlay),
@@ -139,7 +141,9 @@ def content(request):
 @api_view(["GET"])
 def public_config(request):
     s = config.all_settings()
+    from . import trash_model
     return Response({
+        "ai_model": trash_model.available(),
         "emergency_contacts": s["emergency_contacts"], "helpline_note": s["helpline_note"],
         "wards": [{"id": w.id, "name": w.name, "city": w.city, "center": [w.center_lat, w.center_lng], "radius_km": w.radius_km,
                    "office_name": w.office_name, "office_address": w.office_address, "office_phone": w.office_phone,
@@ -179,7 +183,7 @@ def analyze(request):
         a = photo_ai.analyze(f.read(), request.data.get("type", "mixed"))
     except photo_ai.PhotoError as e:
         return err(e.code)
-    return Response({"coverage_pct": a["coverage_pct"], "level": a["level"], "waste_found": a["waste_found"], "model": a["model"],
+    return Response({"coverage_pct": a["coverage_pct"], "level": a["level"], "waste_found": a["waste_found"], "model": a["model"], "ai_model": a["model"] is not None,
                      "eta_min": a["eta_min"], "eta_max": a["eta_max"], "label": a["label"],
                      "overlay": "data:image/jpeg;base64," + base64.b64encode(a["overlay"]).decode()})
 
@@ -224,7 +228,13 @@ def create_report(request):
     for other in Report.objects.filter(ward=ward, created_at__gte=week, status__in=Report.ACTIVE):
         if photo_ai.hamming(other.photo_hash, a["hash"]) <= 4:
             return err("duplicate")
-    emergency = str(request.data.get("is_emergency", "")).lower() in ("1", "true", "yes", "on")
+    # The citizen can only REQUEST emergency priority, with a reason. The ward officer confirms or rejects it.
+    em_req = str(request.data.get("emergency_request", request.data.get("is_emergency", ""))).lower() in ("1", "true", "yes", "on")
+    em_cat = request.data.get("emergency_category") if request.data.get("emergency_category") in dict(Report.EM_CATEGORIES) else ""
+    em_reason = (request.data.get("emergency_reason") or "").strip()[:300]
+    if em_req and len(em_reason) < 5:
+        return Response({"detail": "Write the reason for the emergency (for example: next to the hospital gate).", "code": "em_reason"}, status=400)
+    emergency = False
     try:
         acc = max(0, min(int(float(request.data.get("accuracy_m"))), 100000))
     except (TypeError, ValueError):
@@ -234,6 +244,8 @@ def create_report(request):
                accuracy_m=acc, location_source=src,
                address=(request.data.get("address") or "")[:250], type=wtype, note=(request.data.get("note") or "")[:300],
                contact_phone=(request.data.get("phone") or "")[:20], is_emergency=emergency, coverage_pct=a["coverage_pct"],
+               emergency_status="pending" if em_req else "", emergency_category=em_cat if em_req else "",
+               emergency_reason=em_reason if em_req else "", emergency_place=(request.data.get("emergency_place") or "")[:150] if em_req else "",
                level=a["level"], eta_min=a["eta_min"], eta_max=a["eta_max"],
                photo_hash=a["hash"], ai_label=a["label"],
                analysis={**{k: a[k] for k in ("blur_score", "brightness", "blobs", "waste_found")}, "model": a["model"]})
@@ -241,8 +253,8 @@ def create_report(request):
     r.overlay.save("overlay.jpg", ContentFile(a["overlay"]), save=False)
     r.save()
     where = r.address or f"{lat:.4f}, {lng:.4f}"
-    notify(officers_of(ward), "emergency" if emergency else "report",
-           f"{'EMERGENCY - ' if emergency else ''}New {a['level']} waste report {r.code}",
+    notify(officers_of(ward), "emergency" if em_req else "report",
+           f"{'EMERGENCY REQUEST - ' if em_req else ''}New {a['level']} waste report {r.code}" + (f": {em_reason}" if em_req else ""),
            f"{where} - {a['coverage_pct']}% covered, about {a['eta_min']}-{a['eta_max']} min to clear", report=r)
     return Response({**report_dict(r, with_task=False), "ward_phone": ward.office_phone}, status=201)
 
@@ -270,6 +282,7 @@ def track(request, code):
         "eta_min": r.eta_min, "eta_max": r.eta_max, "ward": r.ward.name, "ward_phone": r.ward.office_phone,
         "photo": url(r.photo), "after_photo": url(t.after_photo) if t and t.status == "cleared" else "",
         "work_min": t.work_min if t else None, "work_sec": t.work_sec if t else None, "events": ev,
+        "emergency_status": r.emergency_status,
     })
 
 
@@ -303,6 +316,7 @@ def overview(request):
         "stats": {
             "open": len(active), "high": sum(r.level == "high" for r in active), "medium": sum(r.level == "medium" for r in active),
             "low": sum(r.level == "low" for r in active), "emergency": sum(r.is_emergency for r in active),
+            "emergency_pending": sum(r.emergency_status == "pending" for r in active),
             "overdue": sum(report_dict(r, False)["overdue"] for r in active),
             "late_tasks": sum(1 for t in Task.objects.filter(report__ward=w, status__in=Task.OPEN, batch__deadline__lt=now)),
             "cleared_today": sum(1 for t in done if t.after_at and timezone.localtime(t.after_at).date() == today),
@@ -370,6 +384,12 @@ def report_update(request, pk):
         r.level = request.data["level"]
     if "is_emergency" in request.data:
         r.is_emergency = bool(request.data["is_emergency"])
+        if r.emergency_status:
+            r.emergency_status = "confirmed" if r.is_emergency else "rejected"
+    decision = request.data.get("emergency_decision")
+    if decision in ("confirm", "reject") and r.emergency_status:
+        r.is_emergency = decision == "confirm"
+        r.emergency_status = "confirmed" if r.is_emergency else "rejected"
     if request.data.get("status") == "rejected" and r.status == "new":
         r.status = "rejected"
     r.save()

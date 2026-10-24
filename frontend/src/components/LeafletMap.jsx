@@ -51,10 +51,10 @@ export default function LeafletMap({ points = [], circles = [], route, selected,
           {c.tip && <Tooltip sticky>{c.tip}</Tooltip>}
         </Circle>
       ))}
-      {route && route.length > 1 && <Polyline positions={route} pathOptions={{ color: '#7c2d6e', weight: 4, dashArray: '8 6' }} />}
+      {route && route.length > 1 && <Polyline positions={route} pathOptions={{ color: '#2f4b7c', weight: 4, dashArray: '8 6' }} />}
       {points.map((p) => (
         <Marker key={`${p.kind || 'r'}${p.id}`} position={[p.lat, p.lng]} zIndexOffset={p.id === selected ? 1000 : p.emergency ? 500 : 0}
-          icon={pinIcon(p.kind === 'office' ? '#1e293b' : LEVEL_COLOR[p.level] || LEVEL_COLOR.low, p.label, { emergency: p.emergency, selected: p.id === selected, office: p.kind === 'office' })}
+          icon={pinIcon(p.kind === 'office' ? '#1c2433' : LEVEL_COLOR[p.level] || LEVEL_COLOR.low, p.label, { emergency: p.emergency, selected: p.id === selected, office: p.kind === 'office' })}
           eventHandlers={onSelect ? { click: () => onSelect(p.id) } : {}}>
           {p.tip && <Tooltip direction="top" className="pin-tip" opacity={1}>{p.tip}</Tooltip>}
         </Marker>

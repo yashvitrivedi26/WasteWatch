@@ -71,7 +71,14 @@ class Report(models.Model):
     type = models.CharField(max_length=15, choices=TYPES, default="mixed")
     note = models.CharField(max_length=300, blank=True)
     contact_phone = models.CharField(max_length=20, blank=True)
-    is_emergency = models.BooleanField(default=False)
+    is_emergency = models.BooleanField(default=False)  # set by the officer (or when the officer confirms a request)
+    EM_CATEGORIES = [("hospital", "Hospital / clinic"), ("school", "School / college"), ("water", "Drinking water / drain"),
+                     ("food", "Food market / eatery"), ("worship", "Temple / mosque / church"), ("hazard", "Hazardous / burning / medical waste"),
+                     ("other", "Other")]
+    emergency_status = models.CharField(max_length=10, blank=True)  # "" | pending | confirmed | rejected
+    emergency_category = models.CharField(max_length=10, blank=True, choices=EM_CATEGORIES)
+    emergency_reason = models.CharField(max_length=300, blank=True)
+    emergency_place = models.CharField(max_length=150, blank=True, help_text="Sensitive place found nearby on OpenStreetMap")
     # OpenCV analysis
     coverage_pct = models.FloatField(default=0)
     level = models.CharField(max_length=6, choices=LEVELS, default="low")

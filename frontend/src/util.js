@@ -1,6 +1,6 @@
 import { fmt } from './i18n/index.jsx';
 
-export const LEVEL_COLOR = { high: '#d9481f', medium: '#e8a21d', low: '#2e9e62', cleared: '#8a93aa' };
+export const LEVEL_COLOR = { high: '#d64545', medium: '#e8a33d', low: '#4ca86a', cleared: '#8a93aa' };
 const LOCALES = { en: 'en-IN', hi: 'hi-IN', gu: 'gu-IN' };
 
 export const fmtTime = (iso, lang = 'en') => (iso ? new Date(iso).toLocaleString(LOCALES[lang] || 'en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : '—');

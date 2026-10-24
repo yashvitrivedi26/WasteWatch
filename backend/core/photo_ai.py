@@ -81,7 +81,9 @@ def clutter_mask(img):
     top[: int(h * 0.5)] = True
     sky = (((H >= 85) & (H <= 135) & (V > 130) & (S < 140) & top) | ((V > 215) & (S < 40) & top)).astype(np.uint8)
     sky = cv2.morphologyEx(sky, cv2.MORPH_OPEN, np.ones((7, 7), np.uint8))
-    leaf = ((H >= 35) & (H <= 85) & (S > 70) & (V > 40)).astype(np.uint8)
+    # vegetation: grass, ivy, bushes (also dull yellow-green leaves), where green is the strongest channel
+    b, g, r = cv2.split(img.astype(np.int16))
+    leaf = (((H >= 25) & (H <= 95) & (S > 35) & (V > 30)) | ((g > r + 12) & (g > b + 12))).astype(np.uint8)
     leaf = cv2.morphologyEx(leaf, cv2.MORPH_OPEN, np.ones((5, 5), np.uint8))
     excluded = (sky | leaf).astype(bool)
 

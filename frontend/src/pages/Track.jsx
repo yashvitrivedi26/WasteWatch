@@ -46,6 +46,7 @@ export default function Track() {
         <section className="card track">
           <div className="track-h"><div><small>{t.rp_id}</small><h2>{r.code}</h2></div><LevelBadge level={r.level} /></div>
           <p className="muted">{r.address || r.ward} · {r.ward}</p>
+          {r.emergency_status && <p className={`em-decide ${r.emergency_status}`}>🚨 {t.em_request_title}: <b>{t['em_st_' + r.emergency_status]}</b></p>}
           <WardMap points={[{ id: 1, lat: r.lat, lng: r.lng, level: r.status === 'cleared' ? 'cleared' : r.level, label: '!' }]}
             marker={null} markerAccuracy={0} circles={r.accuracy_m ? [{ lat: r.lat, lng: r.lng, radius: r.accuracy_m, level: r.level }] : []}
             center={[r.lat, r.lng]} fitKey={r.code} className="map track-map" />

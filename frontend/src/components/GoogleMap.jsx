@@ -9,7 +9,7 @@ const esc = (v) => String(v ?? '').replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<'
 function pinIcon(g, color, label, { emergency, selected, office }) {
   const w = selected ? 38 : 32;
   const h = Math.round(w * 1.25);
-  const stroke = selected ? '#7c2d6e' : emergency ? '#111' : '#fff';
+  const stroke = selected ? '#2f4b7c' : emergency ? '#111' : '#fff';
   const body = office
     ? `<rect x="3" y="3" width="26" height="26" rx="7" fill="${color}" stroke="${stroke}" stroke-width="3"/><path d="M16 29v9" stroke="${color}" stroke-width="4"/>`
     : `<path d="M16 39C16 39 3 24 3 15a13 13 0 0 1 26 0c0 9-13 24-13 24z" fill="${color}" stroke="${stroke}" stroke-width="3"/>`;
@@ -77,7 +77,7 @@ export default function GoogleMap({ points = [], circles = [], route, selected, 
     points.forEach((p) => {
       const key = `${p.kind || 'r'}${p.id}`;
       seen.add(key);
-      const color = p.kind === 'office' ? '#1e293b' : LEVEL_COLOR[p.level] || LEVEL_COLOR.low;
+      const color = p.kind === 'office' ? '#1c2433' : LEVEL_COLOR[p.level] || LEVEL_COLOR.low;
       const sel = p.id === selected;
       const sig = [color, p.label, p.emergency, sel, p.kind].join('|');
       let rec = pins.current.get(key);
@@ -126,7 +126,7 @@ export default function GoogleMap({ points = [], circles = [], route, selected, 
     line.current = null;
     if (!route || route.length < 2 || roadOk) return;
     line.current = new g.current.Polyline({
-      map: map.current, path: route.map(([lat, lng]) => ({ lat, lng })), strokeOpacity: 0, strokeColor: '#7c2d6e',
+      map: map.current, path: route.map(([lat, lng]) => ({ lat, lng })), strokeOpacity: 0, strokeColor: '#2f4b7c',
       icons: [{ icon: { path: 'M 0,-1 0,1', strokeOpacity: 1, strokeWeight: 3, scale: 3 }, offset: '0', repeat: '14px' }],
     });
   }, [ready, route, roadOk]);
@@ -166,7 +166,7 @@ export default function GoogleMap({ points = [], circles = [], route, selected, 
   useEffect(() => {
     if (!ready) return;
     const gm = g.current;
-    if (!renderer.current) renderer.current = new gm.DirectionsRenderer({ suppressMarkers: true, polylineOptions: { strokeColor: '#7c2d6e', strokeWeight: 5, strokeOpacity: 0.85 } });
+    if (!renderer.current) renderer.current = new gm.DirectionsRenderer({ suppressMarkers: true, polylineOptions: { strokeColor: '#2f4b7c', strokeWeight: 5, strokeOpacity: 0.85 } });
     if (!directions || !directions.stops.length || !directions.origin) {
       renderer.current.setMap(null);
       setRoadOk(false);

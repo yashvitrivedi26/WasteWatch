@@ -48,9 +48,9 @@ export default function Officer() {
   const list = useMemo(() => active.filter((r) => {
     if (filter === 'all') return true;
     if (filter === 'new') return r.status === 'new';
-    if (filter === 'emergency') return r.is_emergency;
+    if (filter === 'emergency') return r.is_emergency || r.emergency_status === 'pending';
     return r.level === filter;
-  }).sort((a, b) => (b.is_emergency - a.is_emergency) || (rank[a.level] - rank[b.level]) || (b.coverage_pct - a.coverage_pct)), [active, filter]); // eslint-disable-line
+  }).sort((a, b) => ((b.emergency_status === 'pending') - (a.emergency_status === 'pending')) || (b.is_emergency - a.is_emergency) || (rank[a.level] - rank[b.level]) || (b.coverage_pct - a.coverage_pct)), [active, filter]); // eslint-disable-line
   const sel = reports.find((r) => r.id === selected);
   const points = active.map((r) => ({
     id: r.id, lat: r.lat, lng: r.lng, level: levelOf(r), emergency: r.is_emergency,
@@ -84,7 +84,7 @@ export default function Officer() {
     try { await api(`/api/officer/reports/${id}`, { method: 'PATCH', body }); load(); } catch (e) { setError(e.message); }
   }
 
-  const stats = s ? [[s.open, t.of_s_open], [s.high, t.lv_high, 'high'], [s.medium, t.lv_medium, 'medium'], [s.low, t.lv_low, 'low'], [s.emergency, t.emergency, 'em'],
+  const stats = s ? [[s.open, t.of_s_open], [s.high, t.lv_high, 'high'], [s.medium, t.lv_medium, 'medium'], [s.low, t.lv_low, 'low'], [s.emergency, t.emergency, 'em'], [s.emergency_pending, t.em_pending, 'em'],
     [s.overdue, t.of_overdue, 'em'], [s.late_tasks, t.dl_late_tasks, 'em'], [s.cleared_today, t.of_cleared_today], [fmtMin(s.avg_response_min), t.of_avg_resp], [fmtMin(s.avg_work_min), t.of_avg_work]] : [];
 
   return (
@@ -122,6 +122,7 @@ export default function Officer() {
                 <span>{r.coverage_pct}% · {fmtMin(r.eta_min)}+</span>
                 {r.overdue && <span className="od">⏰ {t.of_overdue}</span>}
                 {r.is_emergency && <span className="od">🚨</span>}
+                {r.emergency_status === 'pending' && <span className="em-req">🚨 {t.em_pending}</span>}
               </div>
               {r.task ? (
                 <div className="ok">{t.assigned} {r.task.team} · {t['st_' + r.status]}
@@ -188,6 +189,19 @@ export default function Officer() {
               {sel.phone && <div><small>{t.rp_phone}</small><b><a href={`tel:${sel.phone}`}>{sel.phone}</a></b></div>}
             </div>
             {sel.note && <p>“{sel.note}”</p>}
+            {sel.emergency_status && (
+              <div className={`em-decide ${sel.emergency_status}`}>
+                <div><b>🚨 {t.em_request_title}</b> · {t['em_cat_' + sel.emergency_category] || ''} · <i>{t['em_st_' + sel.emergency_status]}</i></div>
+                <p>“{sel.emergency_reason}”</p>
+                {sel.emergency_place && <p className="muted">{t.em_osm}: {sel.emergency_place}</p>}
+                {sel.emergency_status === 'pending' && (
+                  <div className="detail-actions">
+                    <button className="btn primary" onClick={() => patch(sel.id, { emergency_decision: 'confirm' })}>{t.em_confirm}</button>
+                    <button className="btn" onClick={() => patch(sel.id, { emergency_decision: 'reject' })}>{t.em_reject}</button>
+                  </div>
+                )}
+              </div>
+            )}
             {sel.task && (
               <div className="kv task-kv">
                 <div><small>{t.assigned}</small><b>{sel.task.team}</b></div>

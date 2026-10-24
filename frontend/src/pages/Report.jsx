@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
-import { getDevicePosition, readPhotoGps, reversePlace, searchPlace } from '../geo.js';
+import { getDevicePosition, nearbySensitive, readPhotoGps, reversePlace, searchPlace } from '../geo.js';
 import { fmt, useLang } from '../i18n/index.jsx';
 import { fmtMin } from '../util.js';
 import Phone from '../components/Phone.jsx';
@@ -25,7 +25,10 @@ export default function Report() {
   const [results, setResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [type, setType] = useState('mixed');
-  const [emergency, setEmergency] = useState(false);
+  const [emergency, setEmergency] = useState(false); // citizen REQUESTS emergency priority; the officer decides
+  const [emCat, setEmCat] = useState('hospital');
+  const [emReason, setEmReason] = useState('');
+  const [nearby, setNearby] = useState(null); // nearest hospital / school / ... from OpenStreetMap
   const [note, setNote] = useState('');
   const [phone, setPhone] = useState('');
   const [msg, setMsg] = useState({ text: '', ok: false });
@@ -61,6 +64,20 @@ export default function Report() {
     reversePlace(point.lat, point.lng).then((a) => live && setAddress(a));
     return () => { live = false; };
   }, [point?.lat, point?.lng]); // eslint-disable-line
+
+  // Look for a hospital, school, temple, water point or market close to the chosen spot.
+  useEffect(() => {
+    if (!point) { setNearby(null); return undefined; }
+    let live = true;
+    const id = setTimeout(() => nearbySensitive(point.lat, point.lng).then((n) => live && setNearby(n)), 600);
+    return () => { live = false; clearTimeout(id); };
+  }, [point?.lat, point?.lng]); // eslint-disable-line
+
+  function useNearby() {
+    setEmergency(true);
+    setEmCat(nearby.category);
+    if (!emReason) setEmReason(fmt(t.em_near_reason, { place: nearby.name || t['em_cat_' + nearby.category], m: nearby.dist }));
+  }
 
   async function findLive(file) {
     setFinding(true);
@@ -115,7 +132,13 @@ export default function Report() {
     form.append('address', address);
     form.append('note', note);
     form.append('phone', phone);
-    form.append('is_emergency', emergency ? '1' : '');
+    if (emergency) {
+      if (emReason.trim().length < 5) { setMsg({ text: t.em_need_reason, ok: false }); return; }
+      form.append('emergency_request', '1');
+      form.append('emergency_category', emCat);
+      form.append('emergency_reason', emReason.trim());
+      if (nearby && nearby.category === emCat) form.append('emergency_place', `${nearby.name || nearby.kind} (${nearby.dist} m)`);
+    }
     setBusy(true);
     try {
       setDone(await api('/api/reports', { method: 'POST', form }));
@@ -128,7 +151,7 @@ export default function Report() {
   }
 
   function again() {
-    setDone(null); setPhoto(null); setPreview(''); setAi(null); setPoint(null); setNote(''); setEmergency(false); setResults([]); setQ('');
+    setDone(null); setPhoto(null); setPreview(''); setAi(null); setPoint(null); setNote(''); setEmergency(false); setEmReason(''); setResults([]); setQ('');
   }
 
   const sourceText = point ? `${{ gps: t.rp_gps, exif: t.rp_exif, map: t.rp_map, search: t.rp_searched }[point.source]}${point.accuracy ? ` · ${fmt(t.rp_accuracy, { m: point.accuracy })}` : ''}` : finding ? t.rp_finding : t.rp_loc_none;
@@ -150,7 +173,7 @@ export default function Report() {
             <div><small>{t.rp_ward}</small><b>{done.ward}</b></div>
           </div>
           <p className="muted">{t.rp_next}</p>
-          {done.is_emergency && <p className="msg">{fmt(t.rp_em_done, { phone: done.ward_phone || '112' })}</p>}
+          {done.emergency_status === 'pending' && <p className="msg warn">{t.em_sent}</p>}
           <div className="cta-row">
             <Link className="btn primary" to={`/track?code=${done.code}`}>{t.rp_track}</Link>
             <button className="btn" onClick={again}>{t.rp_again}</button>
@@ -197,6 +220,7 @@ export default function Report() {
             <div className={`ai-card lv-${ai.level}`}>
               <div className="ai-top"><LevelBadge level={ai.level} /><b>{t.rp_waste_level}</b></div>
               <div className="meter"><i style={{ width: `${Math.min(100, ai.coverage_pct * 2)}%` }} /></div>
+              {!ai.model && <p className="msg warn">{t.ai_missing}</p>}
               {ai.model && (
                 <div className="ai-probs" title={ai.model.method}>
                   {['clean', 'low', 'medium', 'high'].map((k) => (
@@ -259,8 +283,26 @@ export default function Report() {
           <label>{t.rp_phone}<input value={phone} maxLength={15} inputMode="tel" onChange={(e) => setPhone(e.target.value.replace(/[^\d+ ]/g, ''))} /></label>
 
           <div className={`em-box ${emergency ? 'on' : ''}`}>
-            <label className="check"><input type="checkbox" checked={emergency} onChange={(e) => setEmergency(e.target.checked)} /> <b>🚨 {t.rp_emergency}</b></label>
-            <p className="muted">{t.rp_emergency_d}</p>
+            {nearby && !emergency && (
+              <div className="em-near">
+                <span>{{ hospital: '🏥', school: '🏫', worship: '🛕', water: '🚰', food: '🥬' }[nearby.category] || '📍'} {fmt(t.em_near, { place: nearby.name || t['em_cat_' + nearby.category], m: nearby.dist })}</span>
+                <button type="button" className="btn" onClick={useNearby}>{t.em_near_btn}</button>
+              </div>
+            )}
+            <label className="check"><input type="checkbox" checked={emergency} onChange={(e) => setEmergency(e.target.checked)} /> <b>🚨 {t.em_request}</b></label>
+            <p className="muted">{t.em_request_d}</p>
+            {emergency && (
+              <div className="em-fields">
+                <label>{t.em_category}
+                  <select value={emCat} onChange={(e) => setEmCat(e.target.value)}>
+                    {['hospital', 'school', 'water', 'food', 'worship', 'hazard', 'other'].map((k) => <option key={k} value={k}>{t['em_cat_' + k]}</option>)}
+                  </select>
+                </label>
+                <label>{t.em_reason} *
+                  <textarea rows={2} maxLength={300} value={emReason} onChange={(e) => setEmReason(e.target.value)} placeholder={t.em_reason_ph} required />
+                </label>
+              </div>
+            )}
             {emergency && <div className="em-btns">{cfg.emergency_contacts.map((c) => <a key={c.number} className="btn" href={`tel:${c.number}`}>📞 {c.label} · {c.number}</a>)}</div>}
           </div>
 

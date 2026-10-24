@@ -7,5 +7,11 @@ if not exist ".venv\Scripts\activate.bat" (
 )
 call .venv\Scripts\activate.bat
 cd backend
+if not exist "..\ml\models\vision.onnx" (
+  echo Downloading the trash-level AI model, one time...
+  pushd ..
+  python -m ml.download_model
+  popd
+)
 python manage.py runserver 127.0.0.1:8000
 pause

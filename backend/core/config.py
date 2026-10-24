@@ -3,7 +3,7 @@ from .models import SiteSetting
 
 DEFAULTS = {
     "level_medium_pct": 12,      # OpenCV coverage % at which a photo counts as MEDIUM
-    "level_high_pct": 30,        # ... and HIGH
+    "level_high_pct": 50,        # ... and HIGH (only used when the AI model is not installed)
     "eta_base_min": 10,          # minutes of work for a tiny pile (2-person team)
     "eta_per_pct": 1.2,          # extra minutes per 1% of the photo covered by waste
     "after_max_ratio": 0.5,      # after-photo waste must be below this share of the before-photo waste

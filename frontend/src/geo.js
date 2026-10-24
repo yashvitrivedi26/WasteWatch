@@ -116,3 +116,30 @@ export async function reversePlace(lat, lng) {
     return '';
   }
 }
+
+/* ---------- Sensitive places nearby (OpenStreetMap Overpass API: free, no key) ---------- */
+const KIND_CAT = { hospital: 'hospital', clinic: 'hospital', doctors: 'hospital', school: 'school', college: 'school',
+  kindergarten: 'school', university: 'school', place_of_worship: 'worship', drinking_water: 'water', marketplace: 'food' };
+
+// Nearest hospital / school / temple / water point / market within `radius` metres, or null.
+export async function nearbySensitive(lat, lng, radius = 200) {
+  const q = `[out:json][timeout:8];nwr(around:${radius},${lat},${lng})[amenity~"^(hospital|clinic|doctors|school|college|kindergarten|university|place_of_worship|drinking_water|marketplace)$"];out center 20;`;
+  try {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), 9000);
+    const res = await fetch('https://overpass-api.de/api/interpreter', { method: 'POST', body: 'data=' + encodeURIComponent(q), signal: ctl.signal });
+    clearTimeout(timer);
+    const els = (await res.json()).elements || [];
+    const items = els.map((e) => {
+      const p = e.center || e;
+      const d = Math.round(6371000 * 2 * Math.asin(Math.sqrt(Math.sin(((p.lat - lat) * Math.PI) / 360) ** 2
+        + Math.cos((lat * Math.PI) / 180) * Math.cos((p.lat * Math.PI) / 180) * Math.sin(((p.lon - lng) * Math.PI) / 360) ** 2)));
+      return { name: e.tags?.name || e.tags?.['name:en'] || '', kind: e.tags?.amenity, category: KIND_CAT[e.tags?.amenity] || 'other', dist: d };
+    });
+    // hospitals first, then nearest
+    items.sort((a, b) => (a.category !== 'hospital') - (b.category !== 'hospital') || a.dist - b.dist);
+    return items[0] || null;
+  } catch {
+    return null;
+  }
+}
