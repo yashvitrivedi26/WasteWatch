@@ -1,63 +1,137 @@
-import io
-import random
-from datetime import timedelta
+"""Create the Bhavnagar Municipal Corporation (BMC) offices as wards, their teams, and staff accounts.
+
+Offices, addresses and phone numbers are the ones BMC publishes (bmcgujarat.com, "Office Addresses" and ward office lists).
+The Head Office pin is exact (Google plus code Q4CW+M8X, "Mahanagar Seva Sadan, Kalanala").
+For the other offices the command looks the address up on OpenStreetMap (Nominatim, free, needs internet). If a lookup fails the
+pin falls back to the Head Office and a warning is printed: open Admin > Wards & offices and correct that office's latitude/longitude.
+
+Safe to run again: existing wards are never overwritten, so edits made in the Admin panel stay.
+Creates NO reports: every report on the map comes from a real upload.
+"""
+import json
+import time
+import urllib.parse
+import urllib.request
 
 from django.contrib.auth.models import User
-from django.core.files.base import ContentFile
 from django.core.management.base import BaseCommand
-from django.utils import timezone
-from PIL import Image
 
-from core.models import Block, Profile, Report
-from ml import ward
-from ml.features import static_features
+from core.models import Profile, Team, Ward
+from ml import ward as geo
 
-DEMO_USERS = [("citizen1", "citizen", ""), ("officer1", "officer", ""),
-              ("worker1", "worker", "Team A"), ("worker2", "worker", "Team B")]
-PASSWORD = "demo1234"
+HQ = (21.77174, 72.14586)  # decoded from plus code Q4CW+M8X (BMC Head Office, Near Kalanala)
+HOURS = "Mon-Sat, 10:30 AM - 6:10 PM"
+WASTE_HELPLINE = "9727623623"  # BMC "Waste and Dead Animals" helpline
+
+# code, ward name, office name, address, phone, exact (lat, lng) or None, Nominatim queries, teams, old code of the earlier demo ward
+OFFICES = [
+    ("CZ", "Central Zone", "BMC Head Office (Mahanagar Seva Sadan)",
+     "Bhavnagar Mahanagar Seva Sadan, Sir Mangalsinhji Road, Near Kalanala, Bhavnagar, Gujarat 364001",
+     "0278-2439900", HQ, [], ["Team A", "Team B", "Team C", "Team D"], "W7"),
+    ("EZ", "East Zone", "BMC East Zone Office",
+     "Opp. Mantresh Complex, Varahi Society, Bhavnagar, Gujarat 364002",
+     "0278-2430245", None, ["Varahi Society, Bhavnagar", "Mantresh Complex, Ghogha Road, Bhavnagar", "Tarsamiya, Bhavnagar"], ["Team A", "Team B"], "W3"),
+    ("WZ", "West Zone", "BMC West Zone Office",
+     "Akhlol Jakatnaka, Bhavnagar, Gujarat 364004",
+     "9978420640", None, ["Akhlol Jakatnaka, Bhavnagar", "Akhlol, Bhavnagar"], ["Team A", "Team B"], "W11"),
+    ("GC", "Ghogha Circle - Akwada", "Ghogha Circle Ward Office",
+     "Municipal Shopping Center, Shivaji Circle, Ghogha Road, Bhavnagar, Gujarat",
+     WASTE_HELPLINE, None, ["Shivaji Circle, Bhavnagar"], ["Team A", "Team B"], None),
+    ("SN", "Sardarnagar", "Sardarnagar Ward Office",
+     "Municipal Shopping Center, Sardarnagar Circle, Bhavnagar, Gujarat",
+     WASTE_HELPLINE, None, ["Sardarnagar Circle, Bhavnagar", "Sardarnagar, Bhavnagar"], ["Team A", "Team B"], None),
+    ("TK", "Takhteshwar - Navapara", "Takhteshwar Ward Office",
+     "Opp. Parsi Agiyari, Navapara, Bhavnagar, Gujarat",
+     WASTE_HELPLINE, None, ["Navapara, Bhavnagar", "Takhteshwar Temple, Bhavnagar"], ["Team A", "Team B"], None),
+]
+
+# username, full name, role, ward code, team, password  (demo credentials for first run; change them in Admin > Users)
+USERS = [
+    ("wwadmin", "Admin", "admin", "", "", "Admin@2026#WW"),
+    ("meera.joshi", "Meera Joshi", "officer", "CZ", "", "Meera@Ward7#26"),
+    ("rajesh.parmar", "Rajesh Parmar", "officer", "EZ", "", "Rajesh@Ward3#26"),
+    ("anita.shah", "Anita Shah", "officer", "WZ", "", "Anita@Ward11#26"),
+    ("dhruv.bhatt", "Dhruv Bhatt", "officer", "GC", "", "Dhruv@Ghogha#26"),
+    ("komal.makwana", "Komal Makwana", "officer", "SN", "", "Komal@Sardar#26"),
+    ("hetal.pandya", "Hetal Pandya", "officer", "TK", "", "Hetal@Takht#26"),
+    ("ramesh.solanki", "Ramesh Solanki", "worker", "CZ", "Team A", "Ramesh@TeamA#26"),
+    ("sunita.chauhan", "Sunita Chauhan", "worker", "CZ", "Team A", "Sunita@TeamA#26"),
+    ("kiran.vaghela", "Kiran Vaghela", "worker", "CZ", "Team B", "Kiran@TeamB#26"),
+    ("mahesh.dave", "Mahesh Dave", "worker", "CZ", "Team C", "Mahesh@TeamC#26"),
+    ("bhavesh.gohil", "Bhavesh Gohil", "worker", "EZ", "Team A", "Bhavesh@W3A#26"),
+    ("nilesh.rathod", "Nilesh Rathod", "worker", "WZ", "Team A", "Nilesh@W11A#26"),
+    ("jayesh.baraiya", "Jayesh Baraiya", "worker", "GC", "Team A", "Jayesh@GhoghaA#26"),
+    ("pooja.vala", "Pooja Vala", "worker", "SN", "Team A", "Pooja@SardarA#26"),
+    ("alpesh.mer", "Alpesh Mer", "worker", "TK", "Team A", "Alpesh@TakhtA#26"),
+]
 
 
-def placeholder_photo():
-    buf = io.BytesIO()
-    Image.new("RGB", (64, 64), (196, 170, 140)).save(buf, "JPEG")
-    return ContentFile(buf.getvalue(), "sample.jpg")
+def lookup(queries):
+    """Nominatim search limited to a box around Bhavnagar. Returns (lat, lng) or None."""
+    box = f"{HQ[1] - 0.15},{HQ[0] + 0.12},{HQ[1] + 0.15},{HQ[0] - 0.12}"
+    for q in queries:
+        url = ("https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=in&bounded=1"
+               f"&viewbox={box}&q={urllib.parse.quote(q)}")
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "WasteWatch-seed/1.0 (Bhavnagar ward offices)"})
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                rows = json.load(resp)
+        except Exception:
+            rows = []
+        time.sleep(1.1)  # Nominatim allows 1 request per second
+        if rows:
+            lat, lng = float(rows[0]["lat"]), float(rows[0]["lon"])
+            if geo.distance_m(lat, lng, *HQ) < 12000:
+                return lat, lng
+    return None
 
 
 class Command(BaseCommand):
-    help = "Create the synthetic Bhavnagar ward (70 blocks), demo users and sample reports."
+    help = "Create the real Bhavnagar BMC offices (as wards), their teams and staff accounts. Creates NO reports."
+
+    def add_arguments(self, parser):
+        parser.add_argument("--no-geocode", action="store_true", help="Do not look addresses up online; use the Head Office pin.")
 
     def handle(self, *args, **opts):
-        rng = random.Random(42)
-        now = timezone.now()
-        for r in range(ward.ROWS):
-            for c in range(ward.COLS):
-                Block.objects.update_or_create(row=r, col=c, defaults={
-                    "code": ward.block_code(r, c),
-                    "last_pickup_at": now - timedelta(days=rng.randint(0, 3), hours=rng.randint(0, 10)),
-                })
+        wards, warn = {}, []
+        for code, name, office, addr, phone, exact, queries, teams, old in OFFICES:
+            w = Ward.objects.filter(code=code).first()
+            fresh = w is None
+            if fresh and old:  # the earlier demo ward becomes the real office, so its reports, teams and staff are kept
+                w = Ward.objects.filter(code=old).first()
+            if w and not fresh:
+                wards[code] = w
+                for t in teams:
+                    Team.objects.get_or_create(ward=w, name=t)
+                continue
+            pos = exact or (None if opts["no_geocode"] else lookup(queries))
+            if not pos:
+                pos = HQ
+                warn.append(f"{office}: exact pin not found, placed at the Head Office. Correct it in Admin > Wards & offices.")
+            w = w or Ward()
+            w.code, w.name, w.city, w.radius_km = code, name, "Bhavnagar", 2.5
+            w.center_lat, w.center_lng, w.office_lat, w.office_lng = pos[0], pos[1], pos[0], pos[1]
+            w.office_name, w.office_address, w.office_phone, w.office_hours = office, addr, phone, HOURS
+            w.office_email = "comm-bmc@gujarat.gov.in" if code == "CZ" else ""
+            w.is_active = True
+            w.save()
+            wards[code] = w
+            for t in teams:
+                Team.objects.get_or_create(ward=w, name=t)
 
-        for username, role, team in DEMO_USERS:
+        for username, full, role, wcode, team, pw in USERS:
             user, created = User.objects.get_or_create(username=username)
             if created:
-                user.set_password(PASSWORD)
+                user.set_password(pw)
+                first, _, last = full.partition(" ")
+                user.first_name, user.last_name = first, last
+                user.is_staff = user.is_superuser = role == "admin"
                 user.save()
-            Profile.objects.update_or_create(user=user, defaults={"role": role, "team": team})
+            ward = wards.get(wcode)
+            Profile.objects.update_or_create(user=user, defaults={
+                "role": role, "ward": ward, "team": Team.objects.filter(ward=ward, name=team).first() if team else None})
 
-        if not Report.objects.exists():
-            citizen = User.objects.get(username="citizen1")
-            for b in Block.objects.all():
-                s = static_features(b.row, b.col)
-                n = sum(rng.random() < 0.15 + 0.3 * s["footfall"] + 0.3 * (s["near_market"] or s["near_plot"])
-                        for _ in range(3))
-                (s_lat, s_lng), (n_lat, n_lng) = b.bounds
-                for _ in range(n):
-                    Report.objects.create(
-                        block=b, reporter=citizen, photo=placeholder_photo(),
-                        lat=rng.uniform(s_lat, n_lat), lng=rng.uniform(s_lng, n_lng),
-                        size=rng.choice(["small", "medium", "large"]), type=rng.choice(["household", "plastic", "organic", "mixed"]),
-                        ai_label="sample", created_at=now - timedelta(hours=rng.randint(1, 30)),
-                    )
-
+        for line in warn:
+            self.stdout.write(self.style.WARNING(line))
         self.stdout.write(self.style.SUCCESS(
-            f"Ward ready: {Block.objects.count()} blocks, {Report.objects.count()} reports. "
-            f"Demo logins: officer1 / worker1 / worker2, password '{PASSWORD}'."))
+            f"Ready: {Ward.objects.count()} offices, {Team.objects.count()} teams, {User.objects.count()} staff accounts, 0 sample reports."))

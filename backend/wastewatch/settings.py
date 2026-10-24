@@ -1,6 +1,9 @@
 import os
 import sys
 from pathlib import Path
+import mimetypes
+mimetypes.add_type("text/css", ".css", True)
+mimetypes.add_type("text/javascript", ".js", True)
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 REPO_ROOT = BASE_DIR.parent
@@ -62,8 +65,12 @@ MEDIA_ROOT = BASE_DIR / "media"
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": ["rest_framework.authentication.TokenAuthentication"],
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.AllowAny"],
+    "DEFAULT_THROTTLE_RATES": {"login": "30/min", "analyze": "120/hour", "report": "60/hour", "track": "120/hour"},
 }
+DATA_UPLOAD_MAX_MEMORY_SIZE = 25 * 1024 * 1024
+FILE_UPLOAD_MAX_MEMORY_SIZE = 25 * 1024 * 1024
 
 CORS_ALLOWED_ORIGINS = os.environ.get("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",")
 
-ML_MODEL_PATH = REPO_ROOT / "ml" / "model.joblib"
+# A report is routed to the nearest ward if it is within this many km of the ward centre (or its own radius).
+WARD_SNAP_KM = float(os.environ.get("WARD_SNAP_KM", "25"))
