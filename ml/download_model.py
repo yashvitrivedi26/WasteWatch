@@ -9,7 +9,7 @@ from pathlib import Path
 
 import numpy as np
 
-from .clip_prompts import CLASSES
+from .clip_prompts import CLASSES, signature
 
 REPO = "https://huggingface.co/Xenova/clip-vit-base-patch32/resolve/main/"
 FILES = {"vision.onnx": "onnx/vision_model_quantized.onnx", "text.onnx": "onnx/text_model_quantized.onnx", "tokenizer.json": "tokenizer.json"}
@@ -56,7 +56,7 @@ def build_text_embeddings():
         m = np.mean(embs, axis=0)
         vecs[cls] = (m / np.linalg.norm(m)).astype(np.float32)
     np.save(DIR / "text_embeds.npy", np.stack([vecs[c] for c in CLASSES]))
-    (DIR / "classes.json").write_text(json.dumps(list(CLASSES)))
+    (DIR / "classes.json").write_text(json.dumps({"classes": list(CLASSES), "signature": signature()}))
     print(f"  prompts ready for: {', '.join(CLASSES)}")
 
 

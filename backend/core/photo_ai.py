@@ -143,7 +143,7 @@ def analyze(data, waste_type="mixed"):
     coverage = float(round(100.0 * np.count_nonzero(mask) / valid, 1))
     level, waste_found, model = level_for(coverage), coverage >= 3, None
     if trash_model.available():
-        model = trash_model.classify(img)
+        model = trash_model.classify(img, coverage)
         if not model["is_scene"]:
             raise PhotoError("not_scene")
         waste_found = model["level"] != "clean"
@@ -173,4 +173,4 @@ def coverage_only(data):
     img = decode(data)
     mask, valid = clutter_mask(img)
     cov = float(round(100.0 * np.count_nonzero(mask) / valid, 1))
-    return cov, (trash_model.classify(img)["level"] if trash_model.available() else None)
+    return cov, (trash_model.classify(img, cov)["level"] if trash_model.available() else None)

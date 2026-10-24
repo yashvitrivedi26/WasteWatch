@@ -26,7 +26,6 @@ if exist db.sqlite3 (
 )
 python manage.py migrate || (pause & exit /b 1)
 python manage.py seed_ward || (pause & exit /b 1)
-python manage.py seed_demo
 cd ..\frontend
 echo --- Frontend packages ---
 call npm install || (echo npm install failed. & pause & exit /b 1)

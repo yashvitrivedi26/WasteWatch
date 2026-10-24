@@ -27,15 +27,30 @@ def available():
     return (DIR / "vision.onnx").exists() and ((DIR / "text_embeds.npy").exists() or (DIR / "trash_probe.joblib").exists())
 
 
+def _prompts_current():
+    """True if the saved prompt embeddings match ml/clip_prompts.py."""
+    from ml.clip_prompts import signature
+    try:
+        meta = json.loads((DIR / "classes.json").read_text())
+    except (OSError, ValueError):
+        return False
+    return isinstance(meta, dict) and meta.get("signature") == signature()
+
+
 def _load():
     with _lock:
         if not _state:
             import onnxruntime as ort
 
+            # Prompts were edited (or saved by an older version): rebuild their embeddings from the text model.
+            if (DIR / "text.onnx").exists() and (DIR / "tokenizer.json").exists() and not _prompts_current():
+                from ml.download_model import build_text_embeddings
+                build_text_embeddings()
             _state["sess"] = ort.InferenceSession(str(DIR / "vision.onnx"), providers=["CPUExecutionProvider"])
             if (DIR / "text_embeds.npy").exists():
                 _state["text"] = np.load(DIR / "text_embeds.npy")
-                _state["classes"] = json.loads((DIR / "classes.json").read_text())
+                meta = json.loads((DIR / "classes.json").read_text())
+                _state["classes"] = meta["classes"] if isinstance(meta, dict) else meta
             probe = DIR / "trash_probe.joblib"
             if probe.exists():
                 import joblib
@@ -77,8 +92,16 @@ def _softmax(x):
     return p / p.sum()
 
 
-def classify(img_bgr):
-    """Returns {'level', 'probs': {clean, low, medium, high}, 'trash_prob', 'is_scene', 'method'}."""
+def coverage_level(coverage):
+    return "low" if coverage < 12 else "medium" if coverage < 35 else "high"
+
+
+def classify(img_bgr, coverage=None):
+    """Returns {'level', 'probs': {clean, low, medium, high}, 'trash_prob', 'is_scene', 'method', 'decided_by'}.
+
+    The level is the most likely class (not an average, which would always drift to MEDIUM). When the two most
+    likely trash levels are almost tied, the OpenCV coverage of the photo breaks the tie.
+    """
     st = _load()
     e = embed(img_bgr)
     is_scene = True
@@ -91,14 +114,20 @@ def classify(img_bgr):
         p = _softmax(100.0 * st["text"] @ e)  # CLIP logit scale = 100
         allp = dict(zip(st["classes"], p.tolist()))
         is_scene = allp.get("other", 0) < 0.5
-        total = sum(allp[c] for c in SEVERITY) or 1.0
-        probs = {c: allp[c] / total for c in SEVERITY}
+        total = sum(allp.get(c, 0) for c in SEVERITY) or 1.0
+        probs = {c: allp.get(c, 0) / total for c in SEVERITY}
         method = "zero-shot"
     for c in SEVERITY:
         probs.setdefault(c, 0.0)
-    trash = 1.0 - probs["clean"]
-    # Expected severity among the trash classes decides LOW / MEDIUM / HIGH (more stable than the single top class).
-    sev = sum(SEVERITY[c] * probs[c] for c in ("low", "medium", "high")) / max(trash, 1e-6)
-    level = "clean" if probs["clean"] >= 0.5 else "high" if sev >= 2.45 else "medium" if sev >= 1.6 else "low"
-    return {"level": level, "probs": {k: round(v, 3) for k, v in probs.items()}, "trash_prob": round(trash, 3),
-            "severity": round(sev, 2), "is_scene": is_scene, "method": method}
+    ranked = sorted(("low", "medium", "high"), key=lambda c: -probs[c])
+    decided_by = "model"
+    if probs["clean"] >= probs[ranked[0]]:
+        level = "clean"
+    else:
+        level = ranked[0]
+        if coverage is not None and probs[ranked[0]] - probs[ranked[1]] < 0.08:
+            by_cov = coverage_level(coverage)
+            if by_cov in ranked[:2]:
+                level, decided_by = by_cov, "model+coverage"
+    return {"level": level, "probs": {k: round(v, 3) for k, v in probs.items()}, "trash_prob": round(1 - probs["clean"], 3),
+            "is_scene": is_scene, "method": method, "decided_by": decided_by}

@@ -38,17 +38,21 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument("--reset", action="store_true", help="Delete all reports, tasks and batches first")
+        parser.add_argument("--clear", action="store_true", help="Only delete all reports, tasks and batches (no demo data)")
 
     def handle(self, *args, **opts):
         ward = Ward.objects.filter(code="CZ").first() or Ward.objects.first()
         if not ward:
             self.stderr.write("Run python manage.py seed_ward first.")
             return
-        if opts["reset"]:
+        if opts["clear"] or opts["reset"]:
             Notification.objects.all().delete()
             Task.objects.all().delete()
             Batch.objects.all().delete()
             Report.objects.all().delete()
+            if opts["clear"]:
+                self.stdout.write(self.style.SUCCESS("All reports, tasks and batches deleted. The dashboards now show only new reports."))
+                return
         elif Report.objects.filter(ward=ward).exists():
             self.stdout.write("Demo reports already exist (use --reset to recreate).")
             return
