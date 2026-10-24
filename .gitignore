@@ -13,3 +13,6 @@ ml/models/tokenizer.json
 !ml/models/text_embeds.npy
 !ml/models/classes.json
 *.part
+
+# local list of demo logins (kept out of git)
+WasteWatch_logins.txt
