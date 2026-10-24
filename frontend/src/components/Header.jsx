@@ -1,3 +1,4 @@
+import InstallApp from './InstallApp.jsx';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { getSession, setSession } from '../api.js';
 import { LANGS, useLang } from '../i18n/index.jsx';
@@ -20,6 +21,7 @@ export default function Header() {
         {s && HOME[s.role] && <NavLink to={HOME[s.role]}>{t['nav_' + s.role]}</NavLink>}
       </nav>
       <div className="tools">
+        <InstallApp />
         <a className="btn sos" href="tel:112">{t.sos}</a>
         <select value={lang} onChange={(e) => setLang(e.target.value)} aria-label="Language">
           {LANGS.map(([k, label]) => <option key={k} value={k}>{label}</option>)}

@@ -46,24 +46,14 @@ OFFICES = [
 ]
 
 # username, full name, role, ward code, team, password  (demo credentials for first run; change them in Admin > Users)
-USERS = [
+USERS = [  # 2 ward officers + 2 sanitation workers (one per active ward) + 1 administrator
     ("wwadmin", "Admin", "admin", "", "", "Admin@2026#WW"),
     ("meera.joshi", "Meera Joshi", "officer", "CZ", "", "Meera@Ward7#26"),
     ("rajesh.parmar", "Rajesh Parmar", "officer", "EZ", "", "Rajesh@Ward3#26"),
-    ("anita.shah", "Anita Shah", "officer", "WZ", "", "Anita@Ward11#26"),
-    ("dhruv.bhatt", "Dhruv Bhatt", "officer", "GC", "", "Dhruv@Ghogha#26"),
-    ("komal.makwana", "Komal Makwana", "officer", "SN", "", "Komal@Sardar#26"),
-    ("hetal.pandya", "Hetal Pandya", "officer", "TK", "", "Hetal@Takht#26"),
     ("ramesh.solanki", "Ramesh Solanki", "worker", "CZ", "Team A", "Ramesh@TeamA#26"),
-    ("sunita.chauhan", "Sunita Chauhan", "worker", "CZ", "Team A", "Sunita@TeamA#26"),
-    ("kiran.vaghela", "Kiran Vaghela", "worker", "CZ", "Team B", "Kiran@TeamB#26"),
-    ("mahesh.dave", "Mahesh Dave", "worker", "CZ", "Team C", "Mahesh@TeamC#26"),
     ("bhavesh.gohil", "Bhavesh Gohil", "worker", "EZ", "Team A", "Bhavesh@W3A#26"),
-    ("nilesh.rathod", "Nilesh Rathod", "worker", "WZ", "Team A", "Nilesh@W11A#26"),
-    ("jayesh.baraiya", "Jayesh Baraiya", "worker", "GC", "Team A", "Jayesh@GhoghaA#26"),
-    ("pooja.vala", "Pooja Vala", "worker", "SN", "Team A", "Pooja@SardarA#26"),
-    ("alpesh.mer", "Alpesh Mer", "worker", "TK", "Team A", "Alpesh@TakhtA#26"),
 ]
+ACTIVE_WARDS = {"CZ", "EZ"}  # wards with staff; reports anywhere in Bhavnagar go to the nearest of these
 
 
 def lookup(queries):
@@ -113,7 +103,7 @@ class Command(BaseCommand):
             w.center_lat, w.center_lng, w.office_lat, w.office_lng = pos[0], pos[1], pos[0], pos[1]
             w.office_name, w.office_address, w.office_phone, w.office_hours = office, addr, phone, HOURS
             w.office_email = "comm-bmc@gujarat.gov.in" if code == "CZ" else ""
-            w.is_active = True
+            w.is_active = code in ACTIVE_WARDS
             w.save()
             wards[code] = w
             for t in teams:

@@ -10,4 +10,6 @@ media/
 .env
 ml/models/*.onnx
 ml/models/tokenizer.json
+!ml/models/text_embeds.npy
+!ml/models/classes.json
 *.part

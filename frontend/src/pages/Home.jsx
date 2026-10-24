@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../api.js';
 import { useLang } from '../i18n/index.jsx';
 import { fmtMin } from '../util.js';
+import InstallApp from '../components/InstallApp.jsx';
 
 const STEPS = [
   { icon: '📷', k: 1 },
@@ -82,6 +83,14 @@ export default function Home() {
         <div className="hm-cmp new">
           <h3>{t.withWW}</h3>
           <ol>{t.newList.map((l) => <li key={l}>{l}</li>)}</ol>
+        </div>
+      </section>
+
+      <section className="hm-sec">
+        <div className="hm-app">
+          <img src="/icon-192.png" alt="" width="64" height="64" />
+          <div><b>{t.app_title}</b><p>{t.app_text}</p></div>
+          <InstallApp variant="home" />
         </div>
       </section>
 

@@ -42,10 +42,13 @@ def _load():
         if not _state:
             import onnxruntime as ort
 
-            # Prompts were edited (or saved by an older version): rebuild their embeddings from the text model.
-            if (DIR / "text.onnx").exists() and (DIR / "tokenizer.json").exists() and not _prompts_current():
-                from ml.download_model import build_text_embeddings
-                build_text_embeddings()
+            # Prompts were edited: re-encode them if the text tools are installed (python -m ml.download_model --prompts).
+            if not _prompts_current():
+                try:
+                    from ml.download_model import build_text_embeddings
+                    build_text_embeddings()
+                except BaseException as e:  # tools missing: keep the shipped embeddings
+                    print(f"[trash_model] prompts changed but could not be re-encoded ({e}); using the saved ones.")
             _state["sess"] = ort.InferenceSession(str(DIR / "vision.onnx"), providers=["CPUExecutionProvider"])
             if (DIR / "text_embeds.npy").exists():
                 _state["text"] = np.load(DIR / "text_embeds.npy")
@@ -132,7 +135,8 @@ def classify(img_bgr, coverage=None):
     else:
         p = _softmax(100.0 * st["text"] @ e)  # CLIP logit scale = 100
         allp = dict(zip(st["classes"], p.tolist()))
-        is_scene = allp.get("other", 0) < 0.5
+        # Reject selfies / screenshots / documents only when the model is quite sure.
+        is_scene = not (allp.get("other", 0) >= 0.6 and allp["other"] >= max(allp.get(c, 0) for c in SEVERITY))
         total = sum(allp.get(c, 0) for c in SEVERITY) or 1.0
         probs = {c: allp.get(c, 0) / total for c in SEVERITY}
         method = "zero-shot"

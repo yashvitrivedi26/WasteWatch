@@ -166,3 +166,27 @@ of one bin and a whole dump yard are told apart.
 
 **Staff accounts cannot file citizen reports.** A logged-in officer, worker or admin sees a "Citizen reports only"
 page on /report (and the API returns 403), so every report comes from a citizen.
+
+
+## v6: accounts, AI model, mobile app
+
+**Accounts** (2 ward officers, 2 sanitation workers, 1 administrator; change passwords in Admin > Users):
+
+| Role | Username | Password | Ward |
+|---|---|---|---|
+| Ward officer | `meera.joshi` | `Meera@Ward7#26` | Central Zone |
+| Ward officer | `rajesh.parmar` | `Rajesh@Ward3#26` | East Zone |
+| Worker (Team A) | `ramesh.solanki` | `Ramesh@TeamA#26` | Central Zone |
+| Worker (Team A) | `bhavesh.gohil` | `Bhavesh@W3A#26` | East Zone |
+| Administrator | `wwadmin` | `Admin@2026#WW` | all |
+
+Only these two wards are active; a report from anywhere in Bhavnagar goes to the nearest one.
+
+**AI model.** `python -m ml.download_model` downloads OpenAI CLIP ViT-B/32 (ONNX, ~350 MB) from Jina AI's public
+S3 bucket, with Hugging Face as a backup. The prompt embeddings are already in `ml/models/`, so nothing else is
+needed. Tested on real photos: a dump yard comes out HIGH (68%), an overflowing bin with bags MEDIUM (90%).
+
+**Install as an app (PWA).** Open the site in Chrome/Edge and click **Install app** in the header (or on the home
+page). On a phone the site must be opened over https: run `start_all.bat`, then `start_app_phone.bat`, open the
+`https://….trycloudflare.com` link it prints on the phone, and tap **Install app** (iPhone: Share > Add to Home
+Screen). The app opens full-screen with its own icon; reports, photos and GPS work the same as on the website.

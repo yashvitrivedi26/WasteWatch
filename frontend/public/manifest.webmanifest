@@ -1,0 +1,23 @@
+{
+  "name": "WasteWatch – Smart sanitation",
+  "short_name": "WasteWatch",
+  "description": "Report garbage with a photo, track the clean-up, and manage ward sanitation teams.",
+  "id": "/",
+  "start_url": "/?source=app",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f3f5f8",
+  "theme_color": "#2f4b7c",
+  "lang": "en-IN",
+  "categories": ["utilities", "government"],
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Report garbage", "url": "/report", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Track a report", "url": "/track", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] }
+  ]
+}

@@ -497,3 +497,14 @@ body{background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased}
   .login{min-height:auto}
 }
 .login{grid-template-columns:minmax(0,1fr)}
+
+/* ---- installable app ---- */
+.install-btn{display:inline-flex;align-items:center;gap:6px;font-weight:700;color:var(--plum);border-color:#c7d3e8;background:var(--plum-l)}
+.btn.primary.big{display:inline-flex;align-items:center;gap:8px}
+.install-help{position:fixed;inset:0;background:#1c243380;display:grid;place-items:center;z-index:3000;padding:16px}
+.install-card{background:#fff;border-radius:16px;padding:22px;max-width:360px;width:100%;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center}
+.install-card img{border-radius:14px}.install-card h3{margin:4px 0}
+.install-card ol{text-align:left;padding-left:20px;margin:4px 0 10px;line-height:1.6;color:var(--ink2)}
+.hm-app{display:flex;align-items:center;gap:16px;flex-wrap:wrap;background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px 20px}
+.hm-app img{border-radius:14px}.hm-app div{flex:1;min-width:220px}.hm-app p{margin:4px 0 0;color:var(--muted)}
+@media(display-mode:standalone){.topbar{padding-top:max(10px,env(safe-area-inset-top))}}

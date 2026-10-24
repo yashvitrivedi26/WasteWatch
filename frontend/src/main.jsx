@@ -32,6 +32,17 @@ function Footer() {
   );
 }
 
+// Installable app: register the service worker (needs https:// or localhost).
+if ('serviceWorker' in navigator && window.isSecureContext) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
+}
+// Keep the browser's install prompt so the header can offer an "Install app" button.
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  window.__wwInstall = e;
+  window.dispatchEvent(new Event('ww-installable'));
+});
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <LangProvider>
