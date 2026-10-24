@@ -143,7 +143,7 @@ def public_config(request):
     s = config.all_settings()
     from . import trash_model
     return Response({
-        "ai_model": trash_model.available(),
+        "ai_model": trash_model.available(), "ai_version": trash_model.VERSION if trash_model.available() else "basic coverage check",
         "emergency_contacts": s["emergency_contacts"], "helpline_note": s["helpline_note"],
         "wards": [{"id": w.id, "name": w.name, "city": w.city, "center": [w.center_lat, w.center_lng], "radius_km": w.radius_km,
                    "office_name": w.office_name, "office_address": w.office_address, "office_phone": w.office_phone,
@@ -201,6 +201,8 @@ def find_ward(lat, lng):
 @parser_classes(PARSERS)
 @throttled("report")
 def create_report(request):
+    if role(request.user) in ("worker", "officer", "admin"):
+        return Response({"detail": "You are logged in as staff. Log out to send a citizen report.", "code": "staff"}, status=403)
     f = request.FILES.get("photo")
     if not f:
         return Response({"detail": "Add a photo."}, status=400)

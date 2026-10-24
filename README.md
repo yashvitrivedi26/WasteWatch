@@ -158,3 +158,11 @@ Low 48 h, Emergency 2 h). Workers see a live countdown; late batches are flagged
 **Accurate location.** The report page keeps listening to the GPS until it is accurate to 15 m (or 20 s pass),
 shows the accuracy circle, and lets the citizen drag the pin to the exact spot. The accuracy is saved with the
 report and shown on the officer dashboard and on the tracking page map.
+
+**Checking the AI model.** Under the level bars, the report page shows the model version
+(`trash-model v3 …`). If you see a yellow "Basic check only" box instead, run `python -m ml.download_model`.
+The level is the most likely class from CLIP, weighted by how much of the photo the waste covers, so a close-up
+of one bin and a whole dump yard are told apart.
+
+**Staff accounts cannot file citizen reports.** A logged-in officer, worker or admin sees a "Citizen reports only"
+page on /report (and the API returns 403), so every report comes from a citizen.

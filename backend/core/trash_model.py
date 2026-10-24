@@ -92,8 +92,27 @@ def _softmax(x):
     return p / p.sum()
 
 
+VERSION = "trash-model v3 (argmax + coverage prior)"
+
+
 def coverage_level(coverage):
     return "low" if coverage < 12 else "medium" if coverage < 35 else "high"
+
+
+def coverage_prior(coverage):
+    """How strongly the photo coverage supports each level. CLIP often splits a dump between MEDIUM and HIGH;
+    the share of the photo covered by waste settles it."""
+    if coverage is None:
+        return {"low": 1.0, "medium": 1.0, "high": 1.0}
+    if coverage < 8:
+        return {"low": 1.5, "medium": 0.9, "high": 0.6}
+    if coverage < 20:
+        return {"low": 1.2, "medium": 1.2, "high": 0.8}
+    if coverage < 40:
+        return {"low": 0.8, "medium": 1.3, "high": 1.0}
+    if coverage < 65:
+        return {"low": 0.6, "medium": 1.0, "high": 1.4}
+    return {"low": 0.4, "medium": 0.8, "high": 1.8}
 
 
 def classify(img_bgr, coverage=None):
@@ -119,15 +138,11 @@ def classify(img_bgr, coverage=None):
         method = "zero-shot"
     for c in SEVERITY:
         probs.setdefault(c, 0.0)
-    ranked = sorted(("low", "medium", "high"), key=lambda c: -probs[c])
-    decided_by = "model"
-    if probs["clean"] >= probs[ranked[0]]:
-        level = "clean"
-    else:
-        level = ranked[0]
-        if coverage is not None and probs[ranked[0]] - probs[ranked[1]] < 0.08:
-            by_cov = coverage_level(coverage)
-            if by_cov in ranked[:2]:
-                level, decided_by = by_cov, "model+coverage"
+    prior = coverage_prior(coverage)
+    score = {c: probs[c] * prior[c] for c in ("low", "medium", "high")}
+    best = max(score, key=score.get)
+    model_best = max(("low", "medium", "high"), key=lambda c: probs[c])
+    decided_by = "model" if best == model_best else "model+coverage"
+    level = "clean" if probs["clean"] >= 0.5 or probs["clean"] >= max(probs[c] for c in score) * 1.5 else best
     return {"level": level, "probs": {k: round(v, 3) for k, v in probs.items()}, "trash_prob": round(1 - probs["clean"], 3),
-            "is_scene": is_scene, "method": method, "decided_by": decided_by}
+            "is_scene": is_scene, "method": method, "decided_by": decided_by, "version": VERSION}

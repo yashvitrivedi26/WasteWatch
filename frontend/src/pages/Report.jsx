@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { api } from '../api.js';
+import { Link, useNavigate } from 'react-router-dom';
+import { api, getSession, setSession } from '../api.js';
 import { getDevicePosition, nearbySensitive, readPhotoGps, reversePlace, searchPlace } from '../geo.js';
 import { fmt, useLang } from '../i18n/index.jsx';
 import { fmtMin } from '../util.js';
@@ -10,6 +10,7 @@ import WardMap from '../components/WardMap.jsx';
 
 export default function Report() {
   const { t } = useLang();
+  const navigate = useNavigate();
   const [cfg, setCfg] = useState({ wards: [], emergency_contacts: [] });
   const [photo, setPhoto] = useState(null);
   const [preview, setPreview] = useState('');
@@ -158,6 +159,24 @@ export default function Report() {
   const sourceText = point ? `${{ gps: t.rp_gps, exif: t.rp_exif, map: t.rp_map, search: t.rp_searched }[point.source]}${point.accuracy ? ` · ${fmt(t.rp_accuracy, { m: point.accuracy })}` : ''}` : finding ? t.rp_finding : t.rp_loc_none;
   const center = cfg.wards[0]?.center;
 
+  const staff = ['worker', 'officer', 'admin'].includes(getSession()?.role);
+  if (staff) {
+    const s = getSession();
+    return (
+      <main className="wrap narrow">
+        <section className="card staff-note">
+          <div className="staff-ic">🔒</div>
+          <h2>{t.staff_title}</h2>
+          <p className="muted">{fmt(t.staff_text, { name: s.name || s.username, role: t['role_' + s.role] })}</p>
+          <div className="cta-row">
+            <button className="btn primary" onClick={() => { setSession(null); navigate('/report'); window.location.reload(); }}>{t.staff_logout}</button>
+            <Link className="btn" to={`/${s.role}`}>{t.staff_back}</Link>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
   if (done) {
     return (
       <main className="wrap narrow">
@@ -241,7 +260,7 @@ export default function Report() {
                   {['clean', 'low', 'medium', 'high'].map((k) => (
                     <div key={k} className={ai.model.level === k ? 'on' : ''}><small>{t['ai_' + k]}</small><span><i style={{ width: `${Math.round(ai.model.probs[k] * 100)}%` }} /></span><b>{Math.round(ai.model.probs[k] * 100)}%</b></div>
                   ))}
-                  <p className="muted">{ai.model.method === 'trained' ? t.ai_trained : t.ai_zeroshot}</p>
+                  <p className="muted">{ai.model.method === 'trained' ? t.ai_trained : t.ai_zeroshot}{ai.model.decided_by === 'model+coverage' ? ` ${t.ai_cov_used}` : ''} <span className="ai-ver">{ai.model.version}</span></p>
                 </div>
               )}
               <div className="ai-grid">

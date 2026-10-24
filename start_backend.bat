@@ -13,5 +13,6 @@ if not exist "..\ml\models\vision.onnx" (
   python -m ml.download_model
   popd
 )
+python manage.py migrate --noinput
 python manage.py runserver 127.0.0.1:8000
 pause

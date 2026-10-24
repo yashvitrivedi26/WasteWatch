@@ -470,3 +470,30 @@ body{background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased}
   .hm-steps{grid-template-columns:1fr 1fr}.hm-roles,.hm-compare{grid-template-columns:1fr}
 }
 @media(max-width:520px){.hm-steps{grid-template-columns:1fr}.kpis{grid-template-columns:1fr 1fr}.id-box{flex-direction:column}}
+
+/* ---- password eye, staff note, AI version ---- */
+.pw{padding-right:4px}
+.pw .eye{display:grid;place-items:center;width:38px;height:38px;border:0;border-radius:8px;background:transparent;color:var(--muted);cursor:pointer;flex:none}
+.pw .eye:hover{background:var(--plum-l);color:var(--plum)}
+.pw .eye[aria-pressed="true"]{color:var(--plum)}
+.pw .eye:focus-visible{outline:2px solid var(--plum)}
+.staff-note{text-align:center;display:flex;flex-direction:column;align-items:center;gap:8px;padding:32px 24px}
+.staff-note h2{margin:0}.staff-note p{max-width:52ch;font-size:14px;margin:0}
+.staff-ic{width:56px;height:56px;border-radius:16px;background:var(--plum-l);display:grid;place-items:center;font-size:26px}
+.ai-ver{display:inline-block;margin-left:4px;font-size:10.5px;background:#edf1f6;color:var(--muted);border-radius:4px;padding:1px 6px}
+
+/* ---- phone polish: one-row scrolling nav, compact tools, login fits ---- */
+.login-main{padding:24px 16px;box-sizing:border-box}
+.login-card{max-width:min(420px,100%);box-sizing:border-box}
+.role-tabs{min-width:0}.role-tabs button{min-width:0}
+@media(max-width:700px){
+  .topbar{padding:8px 12px;gap:6px}
+  .topbar nav{order:3;width:100%;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:0 -4px}
+  .topbar nav::-webkit-scrollbar{display:none}
+  .topbar nav a{white-space:nowrap;padding:6px 10px}
+  .topbar .tools{gap:6px;flex-wrap:nowrap}
+  .topbar .tools select{padding:6px 8px}
+  .topbar .tools .btn.ghost{max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:6px 10px}
+  .login{min-height:auto}
+}
+.login{grid-template-columns:minmax(0,1fr)}
