@@ -244,7 +244,7 @@ export default function Officer() {
                     <h3>{sel.code}</h3>
                     <div className="d2-badges"><LevelBadge level={sel.level} /><StatusBadge status={sel.status} />{sel.is_emergency && <span className="lvl em">{t.emergency}</span>}</div>
                   </div>
-                  <button className="link" onClick={() => setSelected(null)}>✕</button>
+                  <button className="link" onClick={() => setSelected(null)} aria-label={t.cancel} title={t.cancel}>✕</button>
                 </div>
                 <div className="d2-body">
                   <figure className="d2-photo">

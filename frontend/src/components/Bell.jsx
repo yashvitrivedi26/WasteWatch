@@ -49,11 +49,12 @@ export default function Bell() {
   }
 
   const role = getSession()?.role;
+  const openItem = () => { setOpen(false); nav(role === 'worker' ? '/worker' : role === 'admin' ? '/admin' : '/officer'); };
   const canAsk = 'Notification' in window && Notification.permission === 'default';
 
   return (
     <div className="bell" ref={box}>
-      <button className="btn ghost bell-btn" onClick={toggle} aria-label={t.bell}>
+      <button className="btn ghost bell-btn" onClick={toggle} aria-label={data.unread > 0 ? `${t.bell} (${data.unread})` : t.bell} aria-expanded={open}>
         🔔{data.unread > 0 && <b className="bell-n">{data.unread > 9 ? '9+' : data.unread}</b>}
       </button>
       {open && (
@@ -61,7 +62,7 @@ export default function Bell() {
           <div className="bell-h"><b>{t.bell}</b>{canAsk && <button className="link" onClick={() => Notification.requestPermission().then(() => setOpen(false))}>{t.bell_allow}</button>}</div>
           {data.items.length === 0 && <p className="muted pad">{t.bell_none}</p>}
           {data.items.map((n) => (
-            <div key={n.id} className={`bell-i ${n.read ? '' : 'new'} k-${n.kind}`} onClick={() => { setOpen(false); nav(role === 'worker' ? '/worker' : role === 'admin' ? '/admin' : '/officer'); }}>
+            <div key={n.id} role="button" tabIndex={0} className={`bell-i ${n.read ? '' : 'new'} k-${n.kind}`} onClick={() => openItem()} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openItem(); } }}>
               <span>{ICON[n.kind] || '•'}</span>
               <div><b>{n.title}</b><p>{n.body}</p><small>{fmtTime(n.at, lang)}</small></div>
             </div>
