@@ -17,10 +17,14 @@ heap of bricks and a heap of bags both count. The thresholds were chosen on synt
 tune them with real photos (python manage.py analyze_image <file>) and replace analyze() with a trained model
 (e.g. YOLO / MobileNet) when you have labelled photos. The rest of the app only uses the dict returned here.
 """
+import logging
+
 import cv2
 import numpy as np
 
 from . import config, trash_model
+
+log = logging.getLogger(__name__)
 
 MAX_SIDE = 640
 LEVEL_BGR = {"low": (110, 175, 60), "medium": (40, 160, 230), "high": (50, 80, 220)}
@@ -100,6 +104,19 @@ def clutter_mask(img):
     return keep, max(valid, 1)
 
 
+def _safe_classify(img, coverage):
+    """Run the CLIP trash model, or return None if it is missing or fails (bad ONNX file, onnxruntime not
+    installed, out of memory, ...). The caller then falls back to the OpenCV coverage, so a model problem never
+    turns a citizen's report into a server error."""
+    if not trash_model.available():
+        return None
+    try:
+        return trash_model.classify(img, coverage)
+    except Exception:
+        log.exception("Trash model failed; falling back to OpenCV coverage only.")
+        return None
+
+
 def level_for(coverage):
     return ("high" if coverage >= config.get("level_high_pct")
             else "medium" if coverage >= config.get("level_medium_pct") else "low")
@@ -141,9 +158,9 @@ def analyze(data, waste_type="mixed"):
 
     mask, valid = clutter_mask(img)
     coverage = float(round(100.0 * np.count_nonzero(mask) / valid, 1))
-    level, waste_found, model = level_for(coverage), coverage >= 3, None
-    if trash_model.available():
-        model = trash_model.classify(img, coverage)
+    level, waste_found = level_for(coverage), coverage >= 3
+    model = _safe_classify(img, coverage)
+    if model:
         if not model["is_scene"]:
             raise PhotoError("not_scene")
         waste_found = model["level"] != "clean"
@@ -173,4 +190,5 @@ def coverage_only(data):
     img = decode(data)
     mask, valid = clutter_mask(img)
     cov = float(round(100.0 * np.count_nonzero(mask) / valid, 1))
-    return cov, (trash_model.classify(img, cov)["level"] if trash_model.available() else None)
+    model = _safe_classify(img, cov)
+    return cov, (model["level"] if model else None)
